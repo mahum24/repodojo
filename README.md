@@ -2,6 +2,9 @@
 
 **Read any codebase. Find the bug. Prove you didn't just trust the AI.**
 
+**Live demo:** https://repodojo.onrender.com  
+(Free hosting: if it has been idle, the first load takes about 50 seconds to wake up.)
+
 Software interviews are changing. Google has confirmed it is piloting an AI-assisted **code-comprehension round**: candidates get an unfamiliar multi-file codebase and an AI assistant, then have to find bugs, implement and optimise. Interviewers score how they navigate code they didn't write and their **AI fluency**: whether they ask good questions and *verify* the assistant instead of trusting it. New hires face the same problem on day one, in a real codebase.
 
 LeetCode doesn't train any of that. RepoDojo does, on any real GitHub repo. It combines three tools in one loop:
