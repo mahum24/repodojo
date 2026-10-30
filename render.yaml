@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: repodojo
+    runtime: docker
+    plan: free
+    region: frankfurt
+    healthCheckPath: /healthz
+    envVars:
+      - key: NEBIUS_API_KEY
+        sync: false
