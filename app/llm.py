@@ -104,9 +104,14 @@ def read_image(image_b64: str, mime: str) -> tuple[str, dict]:
 
 
 def chat_json(tier: str, messages: list[dict], **kw) -> dict:
-    """Like chat() but returns parsed JSON, tolerating code fences around it."""
+    """Like chat() but returns parsed JSON, tolerating code fences; retries once if no JSON comes back."""
     text = chat(tier, messages, json_mode=True, **kw)
-    return parse_json(text)
+    try:
+        return parse_json(text)
+    except ValueError:
+        retry = messages + [{"role": "assistant", "content": text[:2000]},
+                            {"role": "user", "content": "Reply again with only the JSON object requested."}]
+        return parse_json(chat(tier, retry, json_mode=True, **kw))
 
 
 def strip_reasoning(text: str) -> str:

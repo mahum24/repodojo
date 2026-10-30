@@ -154,8 +154,8 @@ def _locate(repo, name):
 
 # ---------------------------------------------------------------- practice: the planted bug
 
-def forge_bug(s: Session, max_attempts: int = 4) -> int:
-    candidates = [f for f, _ in repolib.tested_functions(s.repo)[:14]]
+def forge_bug(s: Session, max_attempts: int = 8) -> int:
+    candidates = [f for f, _ in repolib.tested_functions(s.repo)[:20]]
     random.shuffle(candidates)
     total = len(s.repo.test_files) and None
     for attempt, fn in enumerate(candidates[:max_attempts], 1):
@@ -176,7 +176,10 @@ Return JSON:
   "explanation": "what is wrong and what the correct behaviour is"}}"""},
         ], step=f"Forge bug (try {attempt})", max_tokens=800, temperature=0.7)
         find, repl = spec.get("find", ""), spec.get("replace", "")
+        if find and body.count(find) != 1 and body.count(find.strip()) == 1:
+            find, repl = find.strip(), repl.strip()
         if not find or find == repl or body.count(find) != 1:
+            print(f"[forge] try {attempt}: edit didn't match {fn.qualname}")
             continue
         new_body = body.replace(find, repl)
         new_src = src.replace(body, new_body, 1)
@@ -185,6 +188,7 @@ Return JSON:
         n_tests = len(result["passed"]) + len(result["failed"])
         s.runs.append({"kind": "forge", "failed": len(broken)})
         # A good exercise breaks something, but not everything.
+        print(f"[forge] try {attempt}: {fn.qualname} broke {len(broken)}/{n_tests} tests")
         if 1 <= len(broken) <= max(3, n_tests // 4):
             line = src[: src.index(body)].count("\n") + 1 + body[: body.index(find)].count("\n")
             s.bug = {"path": fn.path, "function": fn.qualname, "line": line, "find": find, "replace": repl,
