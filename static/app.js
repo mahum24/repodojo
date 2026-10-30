@@ -81,7 +81,8 @@ async function begin(repo) {
   document.querySelectorAll("#setupSteps li").forEach((li) => { li.className = ""; li.querySelector(".t")?.remove(); });
   document.querySelectorAll(".repo-card, #startBtn").forEach((b) => (b.disabled = true));
   try {
-    await stream("/api/start", { repo }, (ev) => {
+    const replay = new URLSearchParams(location.search).has("replay");
+    await stream("/api/start", { repo, replay }, (ev) => {
       if (ev.status === "error") throw new Error(ev.message);
       mark("#setupSteps", ev);
       if (ev.step === "ready") ready(ev.result);

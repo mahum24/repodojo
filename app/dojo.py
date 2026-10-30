@@ -18,6 +18,7 @@ from . import llm, repo as repolib, runner as runlib
 
 RUNNER = None
 SESSIONS: dict[str, "Session"] = {}
+LAST: dict[str, dict] = {}  # slug -> last tour/bug/ticket, for rehearsing the same exercise
 TRAP_TURN = 2  # the assistant's 2nd answer contains one plausible but wrong claim
 
 
@@ -55,7 +56,7 @@ def new_failures(result, baseline):
 
 # ---------------------------------------------------------------- session setup
 
-def start(repo_input: str):
+def start(repo_input: str, replay: bool = False):
     llm.USAGE.clear()
     slug = repolib.parse_slug(repo_input)
     if repolib.CURATED and slug not in repolib.CURATED and not _allow_any():
@@ -75,6 +76,13 @@ def start(repo_input: str):
     yield event("baseline", "done", result={"passed": len(base["passed"]), "failed": len(base["failed"]),
                                             "seconds": base.get("seconds"), "runner": base["runner"]})
 
+    if replay and slug in LAST:
+        s.tour, s.bug, s.bugged, s.ticket = (LAST[slug][k] for k in ("tour", "bug", "bugged", "ticket"))
+        for step in ("tour", "forge", "ticket"):
+            yield event(step, "done", result={"replayed": True})
+        yield event("ready", "done", result=public_state(s))
+        return
+
     yield event("tour", "running", tier="super")
     s.tour = make_tour(repo)
     yield event("tour", "done", tier="super", result={"steps": len(s.tour["steps"])})
@@ -86,6 +94,7 @@ def start(repo_input: str):
     yield event("ticket", "running", tier="nano")
     s.ticket = write_ticket(s)
     yield event("ticket", "done", tier="nano")
+    LAST[slug] = {"tour": s.tour, "bug": s.bug, "bugged": s.bugged, "ticket": s.ticket}
 
     yield event("ready", "done", result=public_state(s))
 

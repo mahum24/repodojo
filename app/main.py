@@ -57,11 +57,12 @@ def meta():
 
 class Start(BaseModel):
     repo: str
+    replay: bool = False
 
 
 @app.post("/api/start")
 def start(body: Start):
-    return sse(dojo.start(body.repo))
+    return sse(dojo.start(body.repo, body.replay))
 
 
 @app.get("/api/file")
