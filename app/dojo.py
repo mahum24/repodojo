@@ -157,24 +157,14 @@ def _locate(repo, name):
 def forge_bug(s: Session, max_attempts: int = 8) -> int:
     candidates = [f for f, _ in repolib.tested_functions(s.repo)[:20]]
     random.shuffle(candidates)
-    total = len(s.repo.test_files) and None
     for attempt, fn in enumerate(candidates[:max_attempts], 1):
         src = s.repo.files[fn.path]
         body = "\n".join(src.split("\n")[fn.start - 1: fn.end])
-        spec = llm.chat_json("super", [
-            {"role": "system", "content": "You design realistic debugging exercises for engineering interviews. Reply with JSON only."},
-            {"role": "user", "content": f"""Function {fn.qualname} in {fn.path} (lines {fn.start}-{fn.end}):
-```python
-{body}
-```
-Introduce ONE subtle, realistic bug of the kind real engineers write (off-by-one, wrong comparison operator,
-inverted condition, wrong variable, mishandled edge case, wrong default). It must look like plausible code, with no comments hinting at it.
-Return JSON:
-{{"find": "an exact substring of the function (1-2 lines, copied character for character)",
-  "replace": "the buggy replacement",
-  "bug_type": "short label",
-  "explanation": "what is wrong and what the correct behaviour is"}}"""},
-        ], step=f"Forge bug (try {attempt})", max_tokens=800, temperature=0.7)
+        try:
+            spec = _forge_spec(fn, body, attempt)
+        except ValueError as e:
+            print(f"[forge] try {attempt}: {e}")
+            continue
         find, repl = spec.get("find", ""), spec.get("replace", "")
         if find and body.count(find) != 1 and body.count(find.strip()) == 1:
             find, repl = find.strip(), repl.strip()
@@ -200,22 +190,49 @@ Return JSON:
     raise RuntimeError("Couldn't plant a verifiable bug in this repo. Try another one.")
 
 
+def _forge_spec(fn, body, attempt) -> dict:
+    return llm.chat_json("super", [
+            {"role": "system", "content": "You design realistic debugging exercises for engineering interviews. Reply with JSON only."},
+            {"role": "user", "content": f"""Function {fn.qualname} in {fn.path} (lines {fn.start}-{fn.end}):
+```python
+{body}
+```
+Introduce ONE subtle, realistic bug of the kind real engineers write (off-by-one, wrong comparison operator,
+inverted condition, wrong variable, mishandled edge case, wrong default). It must look like plausible code, with no comments hinting at it.
+Return JSON:
+{{"find": "an exact substring of the function (1-2 lines, copied character for character)",
+  "replace": "the buggy replacement",
+  "bug_type": "short label",
+  "explanation": "what is wrong and what the correct behaviour is"}}"""},
+        ], step=f"Forge bug (try {attempt})", max_tokens=800, temperature=0.7)
+
+
 def write_ticket(s: Session) -> dict:
     b = s.bug
-    for _ in range(2):
-        t = llm.chat_json("nano", [
-            {"role": "system", "content": "You write bug reports the way a user of a library would. Reply with JSON only."},
-            {"role": "user", "content": f"""A user of {s.repo.slug} hit a bug. These tests now fail:
+    for _ in range(3):
+        try:
+            text = llm.chat("nano", [
+                {"role": "system", "content": "You write bug reports the way a user of a library would."},
+                {"role": "user", "content": f"""A user of {s.repo.slug} hit a bug. These tests now fail:
 {json.dumps(b['details'])[:3000]}
 
-Write a GitHub-style issue from the user's point of view. Describe the symptom and a minimal reproduction using the public API.
+Write a GitHub-style issue from the user's point of view: the symptom and a minimal reproduction using the public API.
 Do NOT mention {b['function']}, the file {b['path']}, line numbers or the cause.
-Return JSON: {{"title": "...", "body": "what I did, what I expected, what happened (3-6 sentences, may include a short code snippet)"}}"""},
-        ], step="Write bug ticket", max_tokens=700, temperature=0.5)
-        text = f"{t.get('title', '')} {t.get('body', '')}"
-        if b["function"].split(".")[-1] not in text and b["path"] not in text:
-            return t
-    return {"title": f"Unexpected behaviour in {s.repo.slug}", "body": "Several tests started failing after the last change."}
+Format: the first line is the issue title (plain text), then a blank line, then the body (3-6 sentences, may include a short code snippet)."""},
+            ], step="Write bug ticket", max_tokens=700, temperature=0.5)
+        except Exception as e:
+            print(f"[ticket] {e}")
+            continue
+        lines = [l for l in text.strip().split("\n")]
+        title = re.sub(r"^[#*\s]*(title|issue|bug|bug report)?\s*:?[*\s]*", "", lines[0].strip(), flags=re.I).strip("*` ").strip()
+        body = "\n".join(lines[1:]).strip()
+        body = re.sub(r"^(body:\s*)", "", body, flags=re.I)
+        hint = f"{title} {body}"
+        if title and body and b["function"].split(".")[-1] not in hint and b["path"] not in hint:
+            return {"title": title[:140], "body": body[:1500]}
+    return {"title": f"Unexpected behaviour in {s.repo.slug}",
+            "body": "Some behaviour changed after the latest update and several of the project's own tests now fail. "
+                    "Run the test suite to see which ones."}
 
 
 # ---------------------------------------------------------------- the assistant (sometimes wrong, on purpose)

@@ -127,7 +127,10 @@ def parse_json(text: str) -> dict:
     if start == -1 or end == -1:
         raise ValueError(f"no JSON object in model output: {text[:200]}")
     try:
-        return json.loads(text[start:end + 1])
+        obj = json.loads(text[start:end + 1])
     except json.JSONDecodeError:
         # Models occasionally leave an unescaped quote in a long string.
-        return repair_json(text[start:end + 1], return_objects=True)
+        obj = repair_json(text[start:end + 1], return_objects=True)
+    if not isinstance(obj, dict):
+        raise ValueError(f"model output was not a JSON object: {text[:200]}")
+    return obj
