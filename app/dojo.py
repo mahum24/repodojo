@@ -228,7 +228,9 @@ Format: the first line is the issue title (plain text), then a blank line, then 
         body = "\n".join(lines[1:]).strip()
         body = re.sub(r"^(body:\s*)", "", body, flags=re.I)
         hint = f"{title} {body}"
-        if title and body and b["function"].split(".")[-1] not in hint and b["path"] not in hint:
+        name = b["function"].split(".")[-1]
+        leaks = b["path"] in hint or (name.startswith("_") and name in hint)
+        if title and body and not leaks:
             return {"title": title[:140], "body": body[:1500]}
     return {"title": f"Unexpected behaviour in {s.repo.slug}",
             "body": "Some behaviour changed after the latest update and several of the project's own tests now fail. "
