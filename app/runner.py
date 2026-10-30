@@ -48,7 +48,9 @@ class LocalRunner:
                 (work / path).write_text(content)
             report = Path(tmp) / "report.xml"
             args = [a.replace("/tmp/report.xml", str(report)) for a in PYTEST_ARGS]
-            env = {**os.environ, "PYTHONPATH": str(work), "PYTHONDONTWRITEBYTECODE": "1"}
+            # Repo code is untrusted: give it a bare environment so it can't read API keys.
+            env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tmp, "PYTHONPATH": str(work),
+                   "PYTHONDONTWRITEBYTECODE": "1", "LANG": "C.UTF-8"}
             try:
                 proc = subprocess.run([sys.executable, "-m", "pytest", *args, tests], cwd=work, env=env,
                                       capture_output=True, text=True, timeout=TIMEOUT)
