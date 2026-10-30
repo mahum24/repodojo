@@ -1,0 +1,5 @@
+.venv
+.env
+data/raw
+.git
+__pycache__

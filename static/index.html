@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RepoDojo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.css">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand"><span class="logo">⟨/⟩</span>RepoDojo</div>
+    <nav class="phases" id="phases">
+      <span data-phase="start" class="on">Pick a repo</span><span data-phase="learn">Learn</span><span data-phase="challenge">Challenge</span><span data-phase="results">Scorecard</span>
+    </nav>
+    <div class="runner" id="runner"></div>
+  </div>
+</header>
+
+<!-- START -->
+<section id="start" class="phase wrap">
+  <div class="hero">
+    <p class="eyebrow">Google now pilots code-comprehension interviews with an AI assistant</p>
+    <h1>Read any codebase. Find the bug. Prove you didn't just trust the AI.</h1>
+    <p class="lede">RepoDojo turns a real GitHub repo into a guided tour, then plants a real bug, verified by the repo's own tests, and puts you in a 3-panel interview with an AI assistant that is sometimes wrong. Your fix is checked by the test suite, by hidden edge-case tests and by a blast-radius analysis, then scored the way interviewers now score AI fluency.</p>
+  </div>
+  <div class="start-grid">
+    <div class="card">
+      <h3>Choose a repo</h3>
+      <div id="curated" class="curated"></div>
+      <form id="repoForm" class="repo-form">
+        <input id="repoInput" placeholder="or owner/name (e.g. dbader/schedule)" autocomplete="off">
+        <button class="btn primary" id="startBtn">Start</button>
+      </form>
+    </div>
+    <div class="card">
+      <h3>Setting up your dojo</h3>
+      <ol class="steps" id="setupSteps">
+        <li data-step="fetch"><span class="chip graph">GitHub</span>Download &amp; index the repo (AST, import graph)</li>
+        <li data-step="baseline"><span class="chip sandbox" id="baselineChip">Sandbox</span>Run the test suite as a baseline</li>
+        <li data-step="tour"><span class="chip super">Nemotron Super</span>Write a step-by-step tour</li>
+        <li data-step="forge"><span class="chip super">Nemotron Super</span>Plant a bug; tests must prove it breaks</li>
+        <li data-step="ticket"><span class="chip nano">Nemotron Nano</span>Write the bug ticket</li>
+      </ol>
+    </div>
+  </div>
+  <div id="startError" class="error hidden"></div>
+</section>
+
+<!-- LEARN -->
+<section id="learn" class="phase hidden">
+  <div class="split">
+    <div class="pane left-pane">
+      <div class="tour-head"><span id="tourCount"></span><button class="btn ghost" id="skipTour">Skip to the challenge →</button></div>
+      <p class="tour-summary" id="tourSummary"></p>
+      <div id="tourStep" class="tour-step"></div>
+      <div class="tour-nav"><button class="btn" id="prevStep">← Back</button><button class="btn primary" id="nextStep">Next →</button></div>
+    </div>
+    <div class="pane code-pane">
+      <div class="code-head" id="learnPath"></div>
+      <div id="learnEditor" class="editor"></div>
+    </div>
+  </div>
+</section>
+
+<!-- CHALLENGE -->
+<section id="challenge" class="phase hidden">
+  <div class="ticket" id="ticket">
+    <div><span class="tag">Issue</span><b id="ticketTitle"></b><p id="ticketBody"></p></div>
+    <div class="ticket-actions">
+      <span class="timer" id="timer">00:00</span>
+      <button class="btn" id="runBtn">▶ Run tests</button>
+      <button class="btn primary" id="submitBtn">Submit fix</button>
+    </div>
+  </div>
+  <div class="ide">
+    <aside class="pane tree-pane"><div class="pane-title">Files</div><ul id="tree" class="tree"></ul></aside>
+    <div class="pane code-pane">
+      <div class="code-head" id="challengePath">Open a file</div>
+      <div id="challengeEditor" class="editor"></div>
+      <div id="testOut" class="test-out hidden"></div>
+    </div>
+    <aside class="pane chat-pane">
+      <div class="pane-title">AI assistant <span class="model-tag">Nemotron Nano</span></div>
+      <p class="warn">Like real AI tools, this assistant is sometimes confidently wrong. Flag anything you think is wrong; catching it counts.</p>
+      <div id="chat" class="chat"></div>
+      <form id="chatForm" class="chat-form">
+        <textarea id="chatInput" rows="2" placeholder="Ask about the code you're looking at…"></textarea>
+        <button class="btn primary">Ask</button>
+      </form>
+    </aside>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section id="results" class="phase wrap hidden">
+  <div id="scoreSteps" class="card score-steps">
+    <ol class="steps inline">
+      <li data-step="tests"><span class="chip sandbox">Sandbox</span>Full test suite</li>
+      <li data-step="blast"><span class="chip graph">Import graph</span>Blast radius</li>
+      <li data-step="hidden"><span class="chip super">Nemotron Super</span>Hidden edge tests</li>
+      <li data-step="score"><span class="chip ultra">Nemotron Ultra</span>Scorecard</li>
+    </ol>
+  </div>
+  <div id="resultBody" class="hidden">
+    <div class="card verdict">
+      <div class="signal" id="signal"></div>
+      <div><h2 id="scoreSummary"></h2><p id="scoreNext"></p></div>
+    </div>
+    <div class="facts" id="facts"></div>
+    <div class="dims" id="dims"></div>
+    <div class="grid2">
+      <div class="card"><h3>The bug, revealed</h3><div id="reveal"></div></div>
+      <div class="card"><h3>The assistant's wrong answer</h3><div id="trapReveal"></div></div>
+    </div>
+    <div class="grid2">
+      <div class="card"><h3>Blast radius of your change</h3><div id="blast"></div></div>
+      <div class="card"><h3>Your diff</h3><pre id="diff" class="diff"></pre></div>
+    </div>
+    <div class="card"><h3>Model routing on Nebius Token Factory</h3><div id="routing" class="routing"></div></div>
+    <p class="center"><button class="btn primary" id="again">Try another bug</button></p>
+  </div>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.16/mode/python/python.min.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>
